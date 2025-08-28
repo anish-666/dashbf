@@ -1,41 +1,61 @@
-
 // src/spa/Login.jsx
-import { useState } from 'react';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
 
 export default function Login() {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [msg, setMsg] = useState('');
+  const nav = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function save() {
-    if (token && token.trim().length > 0) {
-      localStorage.setItem('token', token.trim());
-      setMsg('Saved token to localStorage. Reload to apply.');
-    } else {
-      localStorage.removeItem('token');
-      setMsg('Cleared token.');
+  async function onSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await api.login(email, password)
+      if (res?.token) {
+        localStorage.setItem('docvai_token', res.token)
+        nav('/overview')
+      } else {
+        setError('Invalid response from server')
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6 text-gray-100 space-y-4">
-      <h1 className="text-2xl font-semibold">Login</h1>
-      <p className="text-sm text-gray-400">
-        Paste your JWT here (you can mint it via your backend). The UI will send it as{' '}
-        <code>Authorization: Bearer &lt;token&gt;</code>.
-      </p>
-      <textarea
-        rows={5}
-        className="w-full bg-gray-900 border border-gray-700 rounded p-3 font-mono text-xs"
-        value={token}
-        onChange={(e) => setToken(e.target.value)}
-        placeholder="eyJhbGciOiJIUzI1..."
-      />
-      <div className="flex gap-3 items-center">
-        <button onClick={save} className="bg-teal-600 hover:bg-teal-500 rounded px-4 py-2 font-medium">
-          Save Token
+    <div className="center-wrap">
+      <form className="card card-md" onSubmit={onSubmit}>
+        <h2 className="card-title">Login</h2>
+        <label className="label">Email</label>
+        <input
+          className="input"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="you@company.com"
+          required
+        />
+        <label className="label">Password</label>
+        <input
+          className="input"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          placeholder="••••••••"
+          required
+        />
+        {error && <div className="error">{error}</div>}
+        <button className="btn btn-primary" disabled={loading}>
+          {loading ? 'Signing in…' : 'Sign in'}
         </button>
-        {msg && <span className="text-sm">{msg}</span>}
-      </div>
+      </form>
     </div>
-  );
+  )
 }
