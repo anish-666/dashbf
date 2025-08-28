@@ -1,15 +1,14 @@
 // /src/App.jsx
 import React from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import Overview from './pages/Overview.jsx'
-import Agents from './pages/Agents.jsx'
-import Conversations from './pages/Conversations.jsx'
-import Outbound from './pages/Outbound.jsx'
-import Campaigns from './pages/Campaigns.jsx'
-import Settings from './pages/Settings.jsx'
-import Login from './pages/Login.jsx'
+import Overview from './spa/Overview.jsx'
+import Agents from './spa/Agents.jsx'
+import Conversations from './spa/Conversations.jsx'
+import Outbound from './spa/Outbound.jsx'
+import Campaigns from './spa/Campaigns.jsx'
+import Settings from './spa/Settings.jsx'
+import Login from './spa/Login.jsx'
 
-import Overview from './spa/Overview.jsx';
 
 function SidebarLink({ to, children }) {
   return (
