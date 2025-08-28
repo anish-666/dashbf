@@ -1,4 +1,10 @@
+
 // src/lib/api.js
+// Centralized API client with sane defaults and back-compat aliases.
+//
+// Exposes api.agents() and api.outbound(...) so legacy pages keep working.
+// Adds token automatically from localStorage under "token".
+
 const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 
 function authHeader() {
@@ -14,38 +20,65 @@ async function request(path, { method = 'GET', body, headers } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const text = await res.text();
-  let data;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  const raw = await res.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
 
   if (!res.ok) {
-    const msg =
-      (data && (data.error || data.message || data.detail)) ||
-      `HTTP ${res.status}`;
+    const msg = (data && (data.error || data.message || data.detail)) || `HTTP ${res.status}`;
     throw new Error(msg);
   }
   return data;
 }
 
+// Some endpoints in your functions use "-index" public variants.
+// We'll try the private first (requires token), then fallback to public.
+async function tryPrivateThenPublic(privatePath, publicPath) {
+  try {
+    return await request(privatePath);
+  } catch (e) {
+    // if unauthorized or missing, try the public one
+    return await request(publicPath);
+  }
+}
+
 export const api = {
-  // generic
-  get: (path) => request(path, { method: 'GET' }),
-  post: (path, body) => request(path, { method: 'POST', body }),
+  get: (p) => request(p, { method: 'GET' }),
+  post: (p, body) => request(p, { method: 'POST', body }),
 
-  // keep the old shape so calling code like api.agents() still works
-  agents: () => request('/agents'),
+  // ---- resources ----
+  agents: async () => {
+    // private: /agents ; public cache/rehydrator: /agents-index
+    const data = await tryPrivateThenPublic('/agents', '/agents-index');
+    return Array.isArray(data) ? data : [];
+  },
 
-  // analytics
-  analyticsSummary: () => request('/analytics-summary'),
-  analyticsTimeseries: (window = '7d') =>
-    request(`/analytics-timeseries?window=${encodeURIComponent(window)}`),
+  analyticsSummary: async () => {
+    try {
+      return await request('/analytics-summary');
+    } catch (e) {
+      // Graceful empty state
+      return { total: 0, connected: 0, avg_duration: 0 };
+    }
+  },
 
-  // calls
+  analyticsTimeseries: async (window = '7d') => {
+    try {
+      const q = encodeURIComponent(window);
+      const data = await request(`/analytics-timeseries?window=${q}`);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Outbound calls (back-compat aliases)
   callsOutbound: ({ numbers, agentId, callerId }) =>
-    request('/calls-outbound', {
-      method: 'POST',
-      body: { numbers, agentId, callerId },
-    }),
+    request('/calls-outbound', { method: 'POST', body: { numbers, agentId, callerId } }),
+
+  // legacy names used by old pages
+  outbound: ({ numbers, agentId, callerId }) =>
+    request('/calls-outbound', { method: 'POST', body: { numbers, agentId, callerId } }),
 };
 
 export default api;
