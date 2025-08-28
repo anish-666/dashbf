@@ -1,26 +1,21 @@
-const { withCors } = require('../../lib/cors.js');
-const { requireAuth } = require('../../lib/auth.js');
-const { listAgents } = require('../../lib/bolna.js');
+const { requireAuth } = require('../_lib/auth')
+const { listAgents }  = require('../_lib/bolna')
 
-exports.handler = withCors(async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'method_not_allowed' }) };
-  try {
-    requireAuth(event);
-  } catch(e){
-    return { statusCode: 401, body: JSON.stringify({ error: 'unauthorized' }) };
+module.exports.handler = async (event) => {
+  const auth = requireAuth(event)
+  if (auth.statusCode) return auth
+  if (event.httpMethod !== 'GET') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'method_not_allowed' }) }
   }
 
-  const res = await listAgents();
-  if (!res.ok) {
-    return { statusCode: 502, body: JSON.stringify({ error: 'provider_error', detail: res.body }) };
-  }
-  // Normalize a tiny bit
-  const agents = (Array.isArray(res.body) ? res.body : res.body?.data || []).map(a => ({
-    id: a.id || a.agent_id || a.uuid || a.name,
-    agent_name: a.agent_name || a.name || a.title || 'Agent',
-    agent_status: a.agent_status || a.status || 'unknown',
-    agent_welcome_message: a.agent_welcome_message || a.welcome_message || null,
-    raw: a,
-  }));
-  return { statusCode: 200, body: JSON.stringify(agents) };
-});
+  const resp  = await listAgents()
+  const items = Array.isArray(resp.body) ? resp.body : (resp.body?.items || [])
+  const rows  = items.map(a => ({
+    id: a.id || a.provider_agent_id || a.agent_id || a.uuid,
+    name: a.agent_name || a.name || 'Agent',
+    provider_agent_id: a.id || a.provider_agent_id || a.agent_id,
+    active: true,
+  }))
+
+  return { statusCode: 200, body: JSON.stringify(rows) }
+}
