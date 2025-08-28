@@ -47,6 +47,45 @@ export const api = {
     });
     return handle(res);
   },
+  const base = import.meta.env.VITE_API_BASE || '/api'
+
+function withAuth(headers = {}) {
+  const token = localStorage.getItem('token')
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+async function request(path, options = {}) {
+  const url = `${base}${path.startsWith('/') ? path : '/' + path}`
+  const headers = withAuth({ 'Content-Type': 'application/json', ...(options.headers || {}) })
+  const resp = await fetch(url, { ...options, headers })
+  const ct = resp.headers.get('content-type') || ''
+  const text = await resp.text()
+
+  let data = null
+  if (ct.includes('application/json')) {
+    try { data = JSON.parse(text) } catch {}
+  }
+
+  if (!resp.ok) {
+    const msg =
+      data?.error ||
+      data?.message ||
+      (ct.includes('text/html') ? `Not Found: ${url}` : text || 'Request failed')
+    const err = new Error(msg); err.status = resp.status; throw err
+  }
+
+  return data ?? {}
+}
+
+export const api = {
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body || {}) }),
+  login: (email, password) => request('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  agents: () => request('/agents'),
+  outbound: (numbers, agentId, callerId) => request('/calls-outbound', { method: 'POST', body: JSON.stringify({ numbers, agentId, callerId }) }),
+}
+
 
   // Convenience wrappers for your functions
   login: (email, password) => fetch(API_BASE + '/login', {
