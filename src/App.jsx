@@ -9,6 +9,8 @@ import Campaigns from './pages/Campaigns.jsx'
 import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
 
+import Overview from './spa/Overview.jsx';
+
 function SidebarLink({ to, children }) {
   return (
     <NavLink
