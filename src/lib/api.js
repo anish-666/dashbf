@@ -1,25 +1,18 @@
 // src/lib/api.js
-const API_BASE =
-  (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.trim()) ||
-  '/.netlify/functions'; // or '/api' if you use the Netlify redirect
+const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 
-async function request(path, opts = {}) {
-  const token = localStorage.getItem('docvai_token');
+function authHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(opts.headers || {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-
-  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await fetch(url, { ...opts, headers });
-
-  if (res.status === 401) {
-    localStorage.removeItem('docvai_token');
-    if (!location.pathname.includes('/login')) location.href = '/login';
-    throw new Error('Unauthorized');
-  }
+async function request(path, { method = 'GET', body, headers } = {}) {
+  const url = `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...(headers || {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
   const text = await res.text();
   let data;
@@ -31,13 +24,28 @@ async function request(path, opts = {}) {
       `HTTP ${res.status}`;
     throw new Error(msg);
   }
-
   return data;
 }
 
 export const api = {
-  get: (p) => request(p),
-  post: (p, body) => request(p, { method: 'POST', body: JSON.stringify(body || {}) }),
-  put: (p, body) => request(p, { method: 'PUT', body: JSON.stringify(body || {}) }),
-  del: (p) => request(p, { method: 'DELETE' }),
+  // generic
+  get: (path) => request(path, { method: 'GET' }),
+  post: (path, body) => request(path, { method: 'POST', body }),
+
+  // keep the old shape so calling code like api.agents() still works
+  agents: () => request('/agents'),
+
+  // analytics
+  analyticsSummary: () => request('/analytics-summary'),
+  analyticsTimeseries: (window = '7d') =>
+    request(`/analytics-timeseries?window=${encodeURIComponent(window)}`),
+
+  // calls
+  callsOutbound: ({ numbers, agentId, callerId }) =>
+    request('/calls-outbound', {
+      method: 'POST',
+      body: { numbers, agentId, callerId },
+    }),
 };
+
+export default api;
