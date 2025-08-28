@@ -1,22 +1,5 @@
-[build]
-  command = "npm run build"
-  publish = "dist"
-  functions = "api"
+# netlify.toml — single, valid config
 
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["pg","jsonwebtoken","uuid"]
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 [build]
   command = "npm run build"
   publish = "dist"
@@ -25,7 +8,7 @@
   node_bundler = "esbuild"
   external_node_modules = ["pg", "jsonwebtoken", "uuid"]
 
-# API → Functions
+# Proxy /api/* → Netlify Functions
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
