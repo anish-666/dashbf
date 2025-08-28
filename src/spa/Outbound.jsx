@@ -1,124 +1,106 @@
-
 // src/spa/Outbound.jsx
-import { useEffect, useMemo, useState } from 'react';
-import api from '../lib/api';
+import { useEffect, useMemo, useState } from 'react'
+import { api } from '../lib/api'
 
-const DEFAULT_CALLER =
-  import.meta.env.VITE_DEFAULT_CALLER_ID ||
-  import.meta.env.VITE_OUTBOUND_CALLER_ID ||
-  '';
+const DEFAULT_CALLER = import.meta.env.VITE_OUTBOUND_CALLER_ID || '(set VITE_OUTBOUND_CALLER_ID)'
 
 export default function Outbound() {
-  const [agents, setAgents] = useState([]);
-  const [agentId, setAgentId] = useState('');
-  const [callerId, setCallerId] = useState(DEFAULT_CALLER);
-  const [numbersText, setNumbersText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [agents, setAgents] = useState([])
+  const [numbersText, setNumbersText] = useState('')
+  const [agentId, setAgentId] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    (async () => {
+    let alive = true
+    ;(async () => {
       try {
-        const list = await api.agents();
-        setAgents(list);
-        if (list.length && !agentId) {
-          // prefer provider_agent_id if present
-          setAgentId(list[0].provider_agent_id || list[0].id || '');
-        }
+        const data = await api.agents()
+        const list = Array.isArray(data) ? data : (data?.items || data?.rows || [])
+        if (alive) setAgents(list)
       } catch (e) {
-        setMsg(e.message || 'Failed to load agents');
+        // non-fatal
       }
-    })();
-  }, []);
+    })()
+    return () => { alive = false }
+  }, [])
 
-  const numbers = useMemo(() => {
-    return numbersText
-      .split(/\r?\n|,|;/g)
+  const numbers = useMemo(() => (
+    numbersText
+      .split(/[\s,;\n]+/)
       .map(s => s.trim())
-      .filter(Boolean);
-  }, [numbersText]);
+      .filter(Boolean)
+  ), [numbersText])
 
-  async function startOutbound() {
-    setMsg('');
-    setSubmitting(true);
+  async function startOutbound(e) {
+    e.preventDefault()
+    setError('')
+    setResult(null)
+
+    if (numbers.length === 0) {
+      setError('Add at least one phone number')
+      return
+    }
+
     try {
-      if (!agentId) throw new Error('Choose an agent');
-      if (!numbers.length) throw new Error('Add at least one phone number');
-      const res = await api.outbound({
-        numbers,
-        agentId,
-        callerId: callerId || undefined,
-      });
-      setMsg(`Created ${res?.created_count ?? numbers.length} call(s).`);
+      setLoading(true)
+      const res = await api.outbound(numbers, agentId || undefined)
+      setResult(res)
     } catch (e) {
-      setMsg(e.message || 'Failed to start calls');
+      setError(e.message || 'Failed to start calls')
     } finally {
-      setSubmitting(false);
+      setLoading(false)
     }
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6 text-gray-100">
-      <h1 className="text-2xl font-semibold">Outbound</h1>
+    <div className="stack-lg">
+      <h1>Outbound</h1>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <label className="block">
-          <span className="block text-sm text-gray-300 mb-1">Agent</span>
-          <select
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-          >
-            {agents.map(a => (
-              <option key={a.provider_agent_id || a.id} value={a.provider_agent_id || a.id}>
-                {a.name || a.agent_name || (a.provider_agent_id || a.id)}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="card">
+        <form className="stack" onSubmit={startOutbound}>
+          <div className="grid2">
+            <div>
+              <label className="label">Agent</label>
+              <select className="input" value={agentId} onChange={e => setAgentId(e.target.value)}>
+                <option value="">(Default)</option>
+                {agents.map(a => (
+                  <option key={a.id || a.provider_agent_id} value={a.provider_agent_id || a.id}>
+                    {a.name || a.agent_name || a.provider_agent_id}
+                  </option>
+                ))}
+              </select>
+              <div className="muted mt-1">Caller ID (From): <b>{DEFAULT_CALLER}</b></div>
+            </div>
 
-        <label className="block">
-          <span className="block text-sm text-gray-300 mb-1">Caller ID (From)</span>
-          <input
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"
-            placeholder="+18005551234"
-            value={callerId}
-            onChange={(e) => setCallerId(e.target.value)}
-          />
-          {DEFAULT_CALLER && (
-            <span className="block text-xs text-gray-400 mt-1">
-              Default from env: <code>{DEFAULT_CALLER}</code>
-            </span>
-          )}
-        </label>
+            <div>
+              <label className="label">Phone numbers (newline, comma, or semicolon)</label>
+              <textarea
+                className="input"
+                rows={5}
+                value={numbersText}
+                onChange={e => setNumbersText(e.target.value)}
+                placeholder="+911234567890, +919876543210"
+              />
+              <div className="muted mt-1">Count: <b>{numbers.length}</b></div>
+            </div>
+          </div>
+
+          {error && <div className="error">{error}</div>}
+
+          <button className="btn btn-primary" disabled={loading}>
+            {loading ? 'Starting…' : 'Start Outbound'}
+          </button>
+        </form>
       </div>
 
-      <div>
-        <label className="block">
-          <span className="block text-sm text-gray-300 mb-1">
-            Phone numbers (newline, comma, or semicolon)
-          </span>
-          <textarea
-            rows={4}
-            className="w-full bg-gray-800 border border-gray-700 rounded p-3 font-mono"
-            placeholder="+14155550123\n+14155550124"
-            value={numbersText}
-            onChange={(e) => setNumbersText(e.target.value)}
-          />
-        </label>
-        <div className="text-sm text-gray-400 mt-1">{numbers.length} number(s)</div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          onClick={startOutbound}
-          disabled={submitting}
-          className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 rounded px-4 py-2 font-medium"
-        >
-          {submitting ? 'Starting…' : 'Start Outbound'}
-        </button>
-        {msg && <div className="text-sm">{msg}</div>}
-      </div>
+      {result && (
+        <div className="card">
+          <div className="card-title">Created</div>
+          <pre className="pre">{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
     </div>
-  );
+  )
 }
