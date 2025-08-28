@@ -23,6 +23,7 @@ export default function Layout() {
           <NavLink to="/overview">Overview</NavLink>
           <NavLink to="/agents">Agents</NavLink>
           <NavLink to="/outbound">Outbound</NavLink>
+           <NavLink to="/campaigns">Campaigns</NavLink>
         </nav>
         <div className="nav-right">
           {loggedIn ? (
