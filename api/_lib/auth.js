@@ -1,44 +1,64 @@
-const jwt = require('jsonwebtoken')
+// api/_lib/auth.js
+const jwt = require('jsonwebtoken');
 
-function requireAuth(event) {
-  const h = event.headers || {}
-  const raw = h.authorization || h.Authorization || ''
-  const token = raw.startsWith('Bearer ') ? raw.slice(7) : null
-  if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'no_token' }) }
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET)
-    return { ok: true, user: payload, tenant_id: payload.tenant_id || 't_demo' }
-  } catch {
-    return { statusCode: 401, body: JSON.stringify({ error: 'invalid_token' }) }
-  }
-}// CommonJS so Netlify/esbuild won’t choke on ESM in Functions
-const jwt = require('jsonwebtoken')
+const COOKIE = 'docvai_token';
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
+const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env'
+function readBody(event) {
+  try { return JSON.parse(event.body || '{}'); } catch { return {}; }
+}
 
-function sign(payload, opts = {}) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d', ...opts })
+function json(status, data, extraHeaders = {}, cookies = []) {
+  const res = {
+    statusCode: status,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    body: JSON.stringify(data),
+  };
+  if (cookies.length) res.multiValueHeaders = { 'Set-Cookie': cookies };
+  return res;
+}
+
+function getCookie(event, name) {
+  const raw = event.headers?.cookie || event.headers?.Cookie || '';
+  const m = raw.match(new RegExp(`${name}=([^;]+)`));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function sign(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
 function verify(token) {
-  return jwt.verify(token, JWT_SECRET)
+  try { return jwt.verify(token, JWT_SECRET); } catch { return null; }
 }
 
 function requireAuth(event) {
-  const hdr = event.headers.authorization || event.headers.Authorization || ''
-  const m = hdr.match(/^Bearer\s+(.+)/i)
-  if (!m) {
-    const err = new Error('Unauthorized'); err.statusCode = 401; throw err
+  const token = getCookie(event, COOKIE);
+  const user = token && verify(token);
+  if (!user) {
+    const err = new Error('Unauthorized');
+    err.statusCode = 401;
+    throw err;
   }
-  try {
-    const user = verify(m[1])
-    return user
-  } catch {
-    const err = new Error('Unauthorized'); err.statusCode = 401; throw err
-  }
+  return user;
 }
 
-module.exports = { sign, verify, requireAuth }
+function setAuthCookie(user) {
+  const token = sign(user);
+  const parts = [
+    `${COOKIE}=${token}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${MAX_AGE}`,
+  ];
+  if (process.env.PUBLIC_SITE_URL?.startsWith('https://')) parts.push('Secure');
+  return parts.join('; ');
+}
 
+function clearAuthCookie() {
+  return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
 
-module.exports = { requireAuth }
+module.exports = { readBody, json, requireAuth, setAuthCookie, clearAuthCookie };
