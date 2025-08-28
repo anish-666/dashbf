@@ -1,0 +1,21 @@
+{
+  "name": "docvai-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "vite": "^5.3.3"
+  }
+}
