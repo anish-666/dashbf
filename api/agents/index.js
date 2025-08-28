@@ -1,6 +1,7 @@
 const { requireAuth } = require('../_lib/auth')
 const { listAgents }  = require('../_lib/bolna')
 
+
 module.exports.handler = async (event) => {
   const auth = requireAuth(event)
   if (auth.statusCode) return auth
