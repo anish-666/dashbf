@@ -5,6 +5,7 @@ import Overview from './spa/Overview.jsx'
 import Agents from './spa/Agents.jsx'
 import Outbound from './spa/Outbound.jsx'
 import Login from './spa/Login.jsx'
+import Campaigns from './spa/Campaigns.jsx'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/overview" element={<Overview />} />
         <Route path="/agents" element={<Agents />} />
         <Route path="/outbound" element={<Outbound />} />
+        <Route path="/campaigns" element={<Campaigns />} /> 
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Route>
     </Routes>
