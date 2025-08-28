@@ -1,51 +1,43 @@
 // src/lib/api.js
 const API_BASE =
-  import.meta.env.VITE_API_BASE?.trim() ||
-  '/.netlify/functions'; // or '/api' if you're using the redirect
+  (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.trim()) ||
+  '/.netlify/functions'; // or '/api' if you use the Netlify redirect
 
 async function request(path, opts = {}) {
   const token = localStorage.getItem('docvai_token');
+
   const headers = {
     'Content-Type': 'application/json',
     ...(opts.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const res = await fetch(
-    `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`,
-    { ...opts, headers }
-  );
+  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const res = await fetch(url, { ...opts, headers });
 
-  // If unauthorized, clear token and bounce to login
   if (res.status === 401) {
     localStorage.removeItem('docvai_token');
-    // avoid infinite loops if already on /login
     if (!location.pathname.includes('/login')) location.href = '/login';
     throw new Error('Unauthorized');
   }
 
   const text = await res.text();
   let data;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
   if (!res.ok) {
-    const message =
+    const msg =
       (data && (data.error || data.message || data.detail)) ||
       `HTTP ${res.status}`;
-    throw new Error(message);
+    throw new Error(msg);
   }
+
   return data;
 }
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) =>
-    request(path, { method: 'POST', body: JSON.stringify(body || {}) }),
-  del: (path) => request(path, { method: 'DELETE' }),
-  put: (path, body) =>
-    request(path, { method: 'PUT', body: JSON.stringify(body || {}) }),
+  get: (p) => request(p),
+  post: (p, body) => request(p, { method: 'POST', body: JSON.stringify(body || {}) }),
+  put: (p, body) => request(p, { method: 'PUT', body: JSON.stringify(body || {}) }),
+  del: (p) => request(p, { method: 'DELETE' }),
 };
