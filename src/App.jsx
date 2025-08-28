@@ -1,68 +1,73 @@
-import { Routes, Route, Navigate, NavLink, useNavigate } from "react-router-dom";
-import Overview from "./spa/Overview.jsx";
-import Agents from "./spa/Agents.jsx";
-import Outbound from "./spa/Outbound.jsx";
-import Login from "./spa/Login.jsx";
+// /src/App.jsx
+import React from 'react'
+import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import Overview from './pages/Overview.jsx'
+import Agents from './pages/Agents.jsx'
+import Conversations from './pages/Conversations.jsx'
+import Outbound from './pages/Outbound.jsx'
+import Campaigns from './pages/Campaigns.jsx'
+import Settings from './pages/Settings.jsx'
+import Login from './pages/Login.jsx'
 
-const authed = () => !!localStorage.getItem("token");
-
-function Protected({ children }) {
-  return authed() ? children : <Navigate to="/login" replace />;
-}
-
-function NavBar() {
-  const navigate = useNavigate();
-  const logout = () => {
-    localStorage.removeItem("token");
-    navigate("/login", { replace: true });
-  };
-  const link = (to, label) => (
+function SidebarLink({ to, children }) {
+  return (
     <NavLink
       to={to}
-      style={({ isActive }) => ({
-        padding: "6px 10px",
-        textDecoration: "none",
-        color: isActive ? "#000" : "#6b7280",
-        fontWeight: isActive ? 600 : 500,
-      })}
-      end
+      className={({ isActive }) =>
+        `block px-3 py-2 rounded-xl ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`
+      }
     >
-      {label}
+      {children}
     </NavLink>
-  );
-
-  return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee",background:"#fff"}}>
-      <div style={{fontWeight:700}}>Docvai</div>
-      <div style={{display:"flex",gap:16}}>
-        {link("/", "Overview")}
-        {link("/agents", "Agents")}
-        {link("/outbound", "Outbound")}
-      </div>
-      <button onClick={logout} style={{padding:"6px 10px",border:"1px solid #ddd",borderRadius:6,background:"#fff",cursor:"pointer"}}>
-        Logout
-      </button>
-    </div>
-  );
-}
-
-function Shell({ children }) {
-  return (
-    <div>
-      <NavBar />
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px" }}>{children}</div>
-    </div>
-  );
+  )
 }
 
 export default function App() {
+  const navigate = useNavigate()
+  const authed = !!localStorage.getItem('docvai_jwt')
+
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Protected><Shell><Overview /></Shell></Protected>} />
-      <Route path="/agents" element={<Protected><Shell><Agents /></Shell></Protected>} />
-      <Route path="/outbound" element={<Protected><Shell><Outbound /></Shell></Protected>} />
-      <Route path="*" element={<Navigate to={authed() ? '/' : '/login'} replace />} />
-    </Routes>
-  );
+    <div className="min-h-screen grid md:grid-cols-[240px_1fr]">
+      <aside className="hidden md:block border-r border-gray-200 dark:border-gray-800 p-4">
+        <div className="font-bold text-lg mb-4">Docvai Dashboard</div>
+        <nav className="space-y-1">
+          <SidebarLink to="/">Overview</SidebarLink>
+          <SidebarLink to="/conversations">Conversations</SidebarLink>
+          <SidebarLink to="/agents">Agents</SidebarLink>
+          <SidebarLink to="/campaigns">Campaigns</SidebarLink>
+          <SidebarLink to="/outbound">Outbound</SidebarLink>
+          <SidebarLink to="/settings">Settings</SidebarLink>
+        </nav>
+        <div className="mt-6">
+          {authed ? (
+            <button
+              className="btn w-full"
+              onClick={() => {
+                localStorage.removeItem('docvai_jwt')
+                navigate('/login')
+              }}
+            >
+              Logout
+            </button>
+          ) : (
+            <button className="btn w-full" onClick={() => navigate('/login')}>
+              Login
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <main className="p-4 space-y-4">
+        <Routes>
+          <Route path="/" element={<Overview />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/conversations" element={<Conversations />} />
+          <Route path="/campaigns" element={<Campaigns />} />
+          <Route path="/outbound" element={<Outbound />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </main>
+    </div>
+  )
 }
