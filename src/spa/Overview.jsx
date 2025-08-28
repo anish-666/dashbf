@@ -1,57 +1,52 @@
+
 // src/spa/Overview.jsx
-import { useFetch } from '../hooks/useFetch';
+import { useEffect, useState } from 'react';
+import api from '../lib/api';
 
 export default function Overview() {
-  const { data: summary, loading: loadingSummary, error: errSummary } =
-    useFetch('/analytics-summary', { initial: {} });
+  const [summary, setSummary] = useState({ total: 0, connected: 0, avg_duration: 0 });
+  const [series, setSeries] = useState([]);
+  const [err, setErr] = useState('');
 
-  const { data: timeseries, loading: loadingTs, error: errTs } =
-    useFetch('/analytics-timeseries?window=7d', { initial: [] });
-
-  const safeSummary = summary && typeof summary === 'object' ? summary : {};
-  const rows = Array.isArray(timeseries) ? timeseries : [];
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await api.analyticsSummary();
+        setSummary(s || { total: 0, connected: 0, avg_duration: 0 });
+      } catch (e) {
+        setErr(e.message || 'Failed to load summary');
+      }
+      try {
+        const t = await api.analyticsTimeseries('7d');
+        setSeries(Array.isArray(t) ? t : []);
+      } catch {}
+    })();
+  }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Overview</h1>
+    <div className="max-w-5xl mx-auto p-6 space-y-6 text-gray-100">
+      <h1 className="text-2xl font-semibold">Overview</h1>
+      {err && <div className="text-red-400 text-sm">{err}</div>}
 
-      {(loadingSummary || loadingTs) && <div>Loading…</div>}
-      {(errSummary || errTs) && (
-        <div className="text-red-600">
-          {errSummary || errTs}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Stat label="Total Calls" value={safeSummary.total_calls ?? 0} />
-        <Stat label="Completed" value={safeSummary.completed_calls ?? 0} />
-        <Stat label="Failed" value={safeSummary.failed_calls ?? 0} />
+      <div className="grid md:grid-cols-3 gap-4">
+        <Stat title="Total Calls" value={summary.total ?? 0} />
+        <Stat title="Connected" value={summary.connected ?? 0} />
+        <Stat title="Avg Duration (s)" value={summary.avg_duration ?? 0} />
       </div>
 
-      <div className="mt-6">
-        <h2 className="font-medium mb-2">Last 7 days</h2>
-        {!rows.length ? (
-          <div className="text-sm text-gray-500">No timeseries data.</div>
-        ) : (
-          <ul className="text-sm space-y-1">
-            {rows.map((r, idx) => (
-              <li key={idx} className="flex justify-between border-b py-1">
-                <span>{r.date || r.day || r.bucket || '—'}</span>
-                <span>{Number(r.count ?? r.calls ?? 0)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="bg-gray-900 border border-gray-700 rounded p-4">
+        <div className="text-sm text-gray-400 mb-2">Last 7 days (raw)</div>
+        <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(series, null, 2)}</pre>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ title, value }) {
   return (
-    <div className="rounded-lg border p-4">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
+    <div className="bg-gray-900 rounded border border-gray-700 p-4">
+      <div className="text-gray-400 text-sm">{title}</div>
+      <div className="text-3xl font-semibold">{value}</div>
     </div>
   );
 }
