@@ -1,83 +1,124 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { api } from '../lib/api'
 
-const DEFAULT_CALLER = import.meta.env.PUBLIC_SITE_URL ? '' : '' // not used here
-const ENV_CALLER = import.meta.env.VITE_OUTBOUND_CALLER_ID || import.meta.env.OUTBOUND_CALLER_ID || '+918035316096'
-const ENV_AGENT = import.meta.env.VITE_BOLNA_AGENT_ID || import.meta.env.BOLNA_AGENT_ID || ''
+// src/spa/Outbound.jsx
+import { useEffect, useMemo, useState } from 'react';
+import api from '../lib/api';
+
+const DEFAULT_CALLER =
+  import.meta.env.VITE_DEFAULT_CALLER_ID ||
+  import.meta.env.VITE_OUTBOUND_CALLER_ID ||
+  '';
 
 export default function Outbound() {
-  const [numbers, setNumbers] = useState('')
-  const [agents, setAgents] = useState([])
-  const [agentId, setAgentId] = useState(ENV_AGENT)
-  const [callerId, setCallerId] = useState(ENV_CALLER)
-  const [running, setRunning] = useState(false)
-  const [result, setResult] = useState(null)
-  const [err, setErr] = useState(null)
+  const [agents, setAgents] = useState([]);
+  const [agentId, setAgentId] = useState('');
+  const [callerId, setCallerId] = useState(DEFAULT_CALLER);
+  const [numbersText, setNumbersText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    api.agents().then(setAgents).catch(()=>{})
-  }, [])
+    (async () => {
+      try {
+        const list = await api.agents();
+        setAgents(list);
+        if (list.length && !agentId) {
+          // prefer provider_agent_id if present
+          setAgentId(list[0].provider_agent_id || list[0].id || '');
+        }
+      } catch (e) {
+        setMsg(e.message || 'Failed to load agents');
+      }
+    })();
+  }, []);
 
-  const parsed = useMemo(() => {
-    return numbers
-      .split(/[\n,;]+/)
+  const numbers = useMemo(() => {
+    return numbersText
+      .split(/\r?\n|,|;/g)
       .map(s => s.trim())
-      .filter(Boolean)
-  }, [numbers])
+      .filter(Boolean);
+  }, [numbersText]);
 
-  const doCall = async () => {
-    setErr(null); setResult(null); setRunning(true)
+  async function startOutbound() {
+    setMsg('');
+    setSubmitting(true);
     try {
-      const r = await api.outbound({ numbers: parsed, agentId, callerId })
-      setResult(r)
-    } catch(e) {
-      setErr(`${e}`)
+      if (!agentId) throw new Error('Choose an agent');
+      if (!numbers.length) throw new Error('Add at least one phone number');
+      const res = await api.outbound({
+        numbers,
+        agentId,
+        callerId: callerId || undefined,
+      });
+      setMsg(`Created ${res?.created_count ?? numbers.length} call(s).`);
+    } catch (e) {
+      setMsg(e.message || 'Failed to start calls');
     } finally {
-      setRunning(false)
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="card space-y-3">
-        <div className="grid md:grid-cols-3 gap-3">
-          <div>
-            <label className="label">Agent</label>
-            <select className="input" value={agentId} onChange={e=>setAgentId(e.target.value)}>
-              <option value="">Select agent…</option>
-              {agents.map(a => (
-                <option key={a.id} value={a.provider_agent_id || a.id}>
-                  {a.name || a.id}
-                </option>
-              ))}
-              {ENV_AGENT && <option value={ENV_AGENT}>Default: {ENV_AGENT}</option>}
-            </select>
-          </div>
-          <div>
-            <label className="label">Caller ID (From)</label>
-            <input className="input" value={callerId} onChange={e=>setCallerId(e.target.value)} placeholder="+918035316096" />
-            <div className="text-xs text-gray-500 mt-1">Default is your env OUTBOUND_CALLER_ID ({ENV_CALLER}).</div>
-          </div>
-          <div>
-            <label className="label">Count</label>
-            <div className="input">{parsed.length}</div>
-          </div>
-        </div>
+    <div className="max-w-3xl mx-auto p-6 space-y-6 text-gray-100">
+      <h1 className="text-2xl font-semibold">Outbound</h1>
 
-        <div>
-          <label className="label">Phone numbers (newline, comma or semicolon separated)</label>
-          <textarea className="input h-40" value={numbers} onChange={e=>setNumbers(e.target.value)} placeholder="+91..., +1..., one per line or separated with commas" />
-        </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <label className="block">
+          <span className="block text-sm text-gray-300 mb-1">Agent</span>
+          <select
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"
+            value={agentId}
+            onChange={(e) => setAgentId(e.target.value)}
+          >
+            {agents.map(a => (
+              <option key={a.provider_agent_id || a.id} value={a.provider_agent_id || a.id}>
+                {a.name || a.agent_name || (a.provider_agent_id || a.id)}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="flex gap-2">
-          <button className="btn" disabled={running || parsed.length === 0 || !agentId} onClick={doCall}>
-            {running ? 'Calling…' : 'Start Outbound'}
-          </button>
-        </div>
+        <label className="block">
+          <span className="block text-sm text-gray-300 mb-1">Caller ID (From)</span>
+          <input
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2"
+            placeholder="+18005551234"
+            value={callerId}
+            onChange={(e) => setCallerId(e.target.value)}
+          />
+          {DEFAULT_CALLER && (
+            <span className="block text-xs text-gray-400 mt-1">
+              Default from env: <code>{DEFAULT_CALLER}</code>
+            </span>
+          )}
+        </label>
       </div>
 
-      {result && <pre className="card overflow-auto text-xs">{JSON.stringify(result, null, 2)}</pre>}
-      {err && <pre className="card overflow-auto text-xs text-red-500">{err}</pre>}
+      <div>
+        <label className="block">
+          <span className="block text-sm text-gray-300 mb-1">
+            Phone numbers (newline, comma, or semicolon)
+          </span>
+          <textarea
+            rows={4}
+            className="w-full bg-gray-800 border border-gray-700 rounded p-3 font-mono"
+            placeholder="+14155550123\n+14155550124"
+            value={numbersText}
+            onChange={(e) => setNumbersText(e.target.value)}
+          />
+        </label>
+        <div className="text-sm text-gray-400 mt-1">{numbers.length} number(s)</div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={startOutbound}
+          disabled={submitting}
+          className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 rounded px-4 py-2 font-medium"
+        >
+          {submitting ? 'Starting…' : 'Start Outbound'}
+        </button>
+        {msg && <div className="text-sm">{msg}</div>}
+      </div>
     </div>
-  )
+  );
 }
