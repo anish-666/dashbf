@@ -1,5 +1,15 @@
-:root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-body { margin: 0; background: #fafafa; color: #111827; }
-h1,h2 { font-weight:700; }
-.card { background:white; border:1px solid #eee; border-radius:10px; padding:16px; }
-.stat { display:inline-block; min-width:200px; margin:12px 12px 0 0; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light dark; }
+body { @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100; }
+a { @apply text-blue-600 hover:underline; }
+.card { @apply bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200/70 dark:border-gray-700 p-5; }
+.btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60; }
+.input { @apply w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm; }
+.label { @apply text-sm font-medium text-gray-700 dark:text-gray-300; }
+.badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700; }
+.table { @apply w-full text-sm; }
+.table th { @apply text-left font-semibold text-gray-500 dark:text-gray-400 py-2; }
+.table td { @apply py-2 border-t border-gray-100 dark:border-gray-700; }
