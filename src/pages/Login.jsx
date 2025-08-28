@@ -22,6 +22,18 @@ export default function Login() {
       setLoading(false)
     }
   }
+  // wherever you handle login submit (e.g., src/pages/Login.jsx)
+import { api } from '../lib/api';
+
+async function onSubmit(e) {
+  e.preventDefault();
+  const email = form.email;
+  const password = form.password;
+  const { token } = await api.post('/auth-login', { email, password });
+  localStorage.setItem('docvai_token', token);
+  location.href = '/';
+}
+
 
   return (
     <div className="max-w-md mx-auto card space-y-3">
