@@ -1,47 +1,62 @@
-
 // src/spa/Agents.jsx
-import { useEffect, useState } from 'react';
-import api from '../lib/api';
+import { useEffect, useState } from 'react'
+import { api } from '../lib/api'
 
 export default function Agents() {
-  const [list, setList] = useState([]);
-  const [err, setErr] = useState('');
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    (async () => {
+    let alive = true
+    ;(async () => {
       try {
-        const data = await api.agents();
-        setList(Array.isArray(data) ? data : []);
+        setLoading(true)
+        const data = await api.agents()
+        const list = Array.isArray(data) ? data : (data?.items || data?.rows || [])
+        if (alive) setRows(list)
       } catch (e) {
-        setErr(e.message || 'Failed to load agents');
+        setError(e.message || 'Failed to load agents')
+      } finally {
+        if (alive) setLoading(false)
       }
-    })();
-  }, []);
+    })()
+    return () => { alive = false }
+  }, [])
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-4 text-gray-100">
-      <h1 className="text-2xl font-semibold">Agents</h1>
-      {err && <div className="text-red-400 text-sm">{err}</div>}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-700 rounded">
-          <thead className="bg-gray-800/60">
-            <tr>
-              <th className="text-left px-3 py-2 border-b border-gray-700">Name</th>
-              <th className="text-left px-3 py-2 border-b border-gray-700">Provider Agent ID</th>
-              <th className="text-left px-3 py-2 border-b border-gray-700">Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(list || []).map((a) => (
-              <tr key={a.provider_agent_id || a.id} className="odd:bg-gray-900 even:bg-gray-900/70">
-                <td className="px-3 py-2">{a.name || a.agent_name || '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs">{a.provider_agent_id || a.id}</td>
-                <td className="px-3 py-2">{String(a.active ?? true)}</td>
+    <div className="stack-lg">
+      <h1>Agents</h1>
+      {loading && <div className="muted">Loading…</div>}
+      {error && <div className="error">{error}</div>}
+
+      {!loading && !error && (
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Provider Agent ID</th>
+                <th>Active</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan="4" className="muted">No agents found</td></tr>
+              )}
+              {rows.map((a) => (
+                <tr key={a.id || a.provider_agent_id}>
+                  <td>{a.id}</td>
+                  <td>{a.name || a.agent_name || '-'}</td>
+                  <td>{a.provider_agent_id}</td>
+                  <td>{String(a.active ?? true)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
-  );
+  )
 }
