@@ -1,39 +1,70 @@
-// src/spa/Campaigns.jsx
-import { useFetch } from '../hooks/useFetch';
+import { useState } from 'react'
+import { api } from '../lib/api'
+
+const parseNums = (text) =>
+  text.split(/[\s,;|\n\r]+/)
+      .map(s => s.trim())
+      .map(s => s.replace(/[^+\d]/g, '').replace(/^00/, '+'))
+      .filter(Boolean)
 
 export default function Campaigns() {
-  const { data, loading, error } = useFetch('/campaigns', { initial: [] });
-  const campaigns = Array.isArray(data) ? data : [];
+  const [name, setName] = useState('')
+  const [agentId, setAgentId] = useState('')
+  const [text, setText] = useState('')
+  const [fileName, setFileName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  function onFile(e) {
+    const f = e.target.files[0]; if (!f) return
+    setFileName(f.name)
+    const r = new FileReader()
+    r.onload = () => setText(parseNums(String(r.result || '')).join('\n'))
+    r.readAsText(f)
+  }
+
+  async function start(e) {
+    e.preventDefault()
+    setError(''); setResult(null)
+    const numbers = parseNums(text)
+    if (numbers.length === 0) { setError('Please provide numbers (paste or upload file).'); return }
+    setBusy(true)
+    try {
+      const res = await api.outbound(numbers, agentId || undefined)
+      setResult({ campaign: name || '(ad-hoc)', ...res })
+    } catch (err) { setError(err.message || 'Failed to start campaign') }
+    finally { setBusy(false) }
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Campaigns</h1>
+    <div className="stack-lg">
+      <h1>Campaigns</h1>
+      <div className="card">
+        <form className="stack" onSubmit={start}>
+          <div className="grid2">
+            <div>
+              <label className="label">Campaign name (optional)</label>
+              <input className="input" value={name} onChange={e=>setName(e.target.value)} placeholder="Warm leads – Sep"/>
+            </div>
+            <div>
+              <label className="label">Upload CSV/TXT</label>
+              <input className="input" type="file" accept=".csv,.txt" onChange={onFile}/>
+              {fileName && <div className="muted mt-1">Loaded: {fileName}</div>}
+            </div>
+          </div>
 
-      {loading && <div>Loading…</div>}
-      {error && <div className="text-red-600 mb-2">{error}</div>}
+          <label className="label">Numbers (edit / paste here)</label>
+          <textarea className="input" rows={8} value={text} onChange={e=>setText(e.target.value)} placeholder="+911234567890, +919876543210"/>
+          <div className="muted">Count: <b>{parseNums(text).length}</b></div>
 
-      {!campaigns.length ? (
-        <div className="text-sm text-gray-500">No campaigns yet.</div>
-      ) : (
-        <table className="w-full text-sm border rounded overflow-hidden">
-          <thead>
-            <tr className="bg-gray-50 text-left">
-              <th className="p-3 border-b">Name</th>
-              <th className="p-3 border-b">Status</th>
-              <th className="p-3 border-b">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campaigns.map((c) => (
-              <tr key={c.id} className="border-b">
-                <td className="p-3">{c.name || c.id}</td>
-                <td className="p-3">{c.status || '—'}</td>
-                <td className="p-3">{c.created_at ? new Date(c.created_at).toLocaleString() : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          {error && <div className="error">{error}</div>}
+          <button className="btn btn-primary" disabled={busy}>{busy ? 'Starting…' : 'Start campaign'}</button>
+        </form>
+      </div>
+
+      {result && (<div className="card"><div className="card-title">Result</div>
+        <pre className="pre">{JSON.stringify(result, null, 2)}</pre></div>)}
     </div>
-  );
+  )
 }
