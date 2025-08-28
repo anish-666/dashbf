@@ -8,6 +8,39 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState(null)
   const [loading, setLoading] = useState(false)
+// src/spa/Login.jsx  (only the submit bit)
+import { api } from '../lib/api';
+import { useState } from 'react';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr('');
+    try {
+      const { token } = await api.post('/auth-login', { email, password });
+      localStorage.setItem('docvai_token', token);
+      location.href = '/';
+    } catch (e) {
+      setErr(e.message || 'Login failed');
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="p-6 max-w-sm mx-auto">
+      <h1 className="text-xl font-semibold mb-4">Sign in</h1>
+      {err && <div className="text-red-600 mb-3">{err}</div>}
+      <input className="border rounded w-full p-2 mb-2" placeholder="Email"
+             value={email} onChange={(e)=>setEmail(e.target.value)} />
+      <input className="border rounded w-full p-2 mb-4" placeholder="Password" type="password"
+             value={password} onChange={(e)=>setPassword(e.target.value)} />
+      <button className="rounded bg-black text-white px-3 py-2 w-full">Login</button>
+    </form>
+  );
+}
 
   const submit = async (e) => {
     e.preventDefault()
